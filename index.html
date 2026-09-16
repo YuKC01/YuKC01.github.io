@@ -90,71 +90,126 @@
     <article id="post-从装系统到-Redis-缓存跑通：完整踩坑记录" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
   <div class="article-meta">
     <a href="/2026/09/16/%E4%BB%8E%E8%A3%85%E7%B3%BB%E7%BB%9F%E5%88%B0-Redis-%E7%BC%93%E5%AD%98%E8%B7%91%E9%80%9A%EF%BC%9A%E5%AE%8C%E6%95%B4%E8%B8%A9%E5%9D%91%E8%AE%B0%E5%BD%95/" class="article-date">
-  <time class="dt-published" datetime="2026-09-16T13:43:18.000Z" itemprop="datePublished">2026-09-16</time>
+  <time class="dt-published" datetime="2026-09-16T13:43:18.074Z" itemprop="datePublished">2026-09-16</time>
 </a>
     
   </div>
   <div class="article-inner">
     
     
-      <header class="article-header">
-        
-  
-    <h1 itemprop="name">
-      <a class="p-name article-title" href="/2026/09/16/%E4%BB%8E%E8%A3%85%E7%B3%BB%E7%BB%9F%E5%88%B0-Redis-%E7%BC%93%E5%AD%98%E8%B7%91%E9%80%9A%EF%BC%9A%E5%AE%8C%E6%95%B4%E8%B8%A9%E5%9D%91%E8%AE%B0%E5%BD%95/">从装系统到 Redis 缓存跑通：完整踩坑记录</a>
-    </h1>
-  
-
-      </header>
-    
     <div class="e-content article-entry" itemprop="articleBody">
       
-        <p>从虚拟机搭建到 Redis 缓存跑通：VMware + Ubuntu + Docker 全流程踩坑实录<br>本文完整记录了从 0 开始在 VMware 中部署 Ubuntu 虚拟机，到 Docker 安装、Redis 容器启动，最终与 Spring Boot 项目联调跑通缓存功能的全流程。全程踩坑密集，从网络配置、镜像加速到 Java 序列化问题逐一记录，所有方案均经过实测验证。<br>环境说明<br>表格<br>类别	版本 &#x2F; 配置<br>主机系统	Windows 11<br>虚拟化软件	VMware Workstation 17 Pro<br>虚拟机系统	Ubuntu 26.04 LTS<br>Docker 版本	29.8.1<br>Redis 版本	7.x<br>项目框架	Spring Boot 3.x<br>一、VMware 创建 Ubuntu 虚拟机<br>1.1 安装配置要点<br>创建虚拟机时选择「稍后安装操作系统」，避免 Easy Install 自动分区与配置带来的兼容问题；版本选择 Ubuntu 64 位，磁盘分配 40GB 动态扩展，网络模式默认 NAT。<br>1.2 踩坑：安装目录重命名导致引擎丢失<br>⚠️ 现象：启动虚拟机时报错 Unable to find the VMX binary，虚拟机完全无法启动。<br>根因：安装后修改了 VMware 的安装文件夹名称，但注册表与服务中记录的仍是原始绝对路径，导致程序找不到核心执行文件。<br>解决方案：将文件夹名称改回安装时的原始名称，与注册表路径对齐即可。<br>经验教训：桌面软件安装完成后不要随意修改安装目录名，所有服务、注册表、驱动关联的都是绝对路径，改名会引发连锁故障。<br>二、网络配置排障（耗时最长）<br>网络部分是本次踩坑最多的环节，从桥接模式失效到虚拟网卡丢失，逐一排查解决。<br>2.1 问题一：桥接模式下获取不到有效 IP<br>现象：虚拟机 IP 显示为 169.254.x.x 自动私有地址，无法访问外网，主机也 ping 不通虚拟机。<br>根因：主机使用 WiFi 无线上网，绝大多数无线网卡不支持桥接模式下的 MAC 地址转发，拒绝给虚拟机 MAC 分配 IP 地址。<br>解决方案：直接改用 NAT 模式（VMnet8）。Windows 主机与虚拟机通过虚拟网卡互通，虚拟机共享主机网络上网，完全满足开发测试需求。<br>2.2 问题二：NAT 模式依然拿不到 IP<br>现象：切换 NAT 模式后，虚拟机依然是 169.254 段地址，ip a 看不到正常的内网 IP。<br>根因：之前修改 VMware 安装目录，导致 VMnet1、VMnet8 虚拟网卡驱动信息损坏，虚拟交换机工作异常。<br>解决方案：<br>打开 VMware → 编辑 → 虚拟网络编辑器<br>点击右下角「更改设置」获取管理员权限<br>点击「还原默认设置」，自动重建所有虚拟网卡与网络配置<br>等待重建完成后重启虚拟机<br>2.3 问题三：NetworkManager 缓存失效状态<br>现象：虚拟网卡恢复后，Ubuntu 依然无法获取 IP，网络状态停留在失败缓存。<br>解决方案：重建网络连接，清除旧缓存：<br>bash</p>
-<h1 id="删除旧的失效连接"><a href="#删除旧的失效连接" class="headerlink" title="删除旧的失效连接"></a>删除旧的失效连接</h1><p>sudo nmcli connection delete “netplan-ens33”</p>
-<h1 id="新建自动获取-IP-的以太网连接"><a href="#新建自动获取-IP-的以太网连接" class="headerlink" title="新建自动获取 IP 的以太网连接"></a>新建自动获取 IP 的以太网连接</h1><p>sudo nmcli connection add type ethernet ifname ens33 con-name “ens33-auto” ipv4.method auto</p>
-<h1 id="启用连接"><a href="#启用连接" class="headerlink" title="启用连接"></a>启用连接</h1><p>sudo nmcli connection up “ens33-auto”<br>2.4 问题四：网络连通但域名解析失败<br>现象：能 ping 通公网 IP，但 ping baidu.com 报域名解析错误，apt 无法下载软件。<br>解决方案：手动配置 DNS 服务器：<br>bash</p>
-<h1 id="修改连接的-DNS-配置"><a href="#修改连接的-DNS-配置" class="headerlink" title="修改连接的 DNS 配置"></a>修改连接的 DNS 配置</h1><p>sudo nmcli connection modify “ens33-auto” ipv4.dns “8.8.8.8 114.114.114.114”</p>
-<h1 id="重启连接生效"><a href="#重启连接生效" class="headerlink" title="重启连接生效"></a>重启连接生效</h1><p>sudo nmcli connection up “ens33-auto”<br>三、Docker 安装与镜像加速<br>3.1 安装选择<br>尝试使用阿里云 docker-ce 源下载速度极慢，改用 Ubuntu 官方源的 docker.io 包，安装更稳定：<br>bash<br>sudo apt update<br>sudo apt install -y docker.io<br>3.2 踩坑：阿里云个人镜像加速器停服<br>⚠️ 现象：配置阿里云个人加速器地址后，拉取镜像一直超时，返回 403 错误。<br>根因：阿里云容器镜像服务 ACR 个人免费加速器已调整下线，旧地址不再提供服务。<br>解决方案：替换为国内公共镜像加速站，在 &#x2F;etc&#x2F;docker&#x2F;daemon.json 中配置：<br>bash<br>echo ‘{<br>  “registry-mirrors”: [<br>    “<a target="_blank" rel="noopener" href="https://docker.m.daocloud.io/">https://docker.m.daocloud.io</a>“,<br>    “<a target="_blank" rel="noopener" href="https://docker.1ms.run/">https://docker.1ms.run</a>“,<br>    “<a target="_blank" rel="noopener" href="https://dockerpull.com/">https://dockerpull.com</a>“<br>  ],<br>  “log-driver”: “json-file”,<br>  “log-opts”: {<br>    “max-size”: “100m”,<br>    “max-file”: “3”<br>  }<br>}’ | sudo tee &#x2F;etc&#x2F;docker&#x2F;daemon.json<br>重启 Docker 生效：<br>bash<br>sudo systemctl daemon-reload<br>sudo systemctl restart docker<br>3.3 用户权限配置<br>将当前用户加入 docker 用户组，避免每次执行命令都要加 sudo：<br>bash<br>sudo usermod -aG docker $USER<br>注销重新登录后生效。<br>四、Redis 容器部署与连通验证<br>4.1 启动 Redis 容器<br>拉取镜像并启动生产级容器，配置端口映射与开机自启：<br>bash</p>
-<h1 id="拉取镜像"><a href="#拉取镜像" class="headerlink" title="拉取镜像"></a>拉取镜像</h1><p>docker pull redis:7</p>
-<h1 id="启动容器"><a href="#启动容器" class="headerlink" title="启动容器"></a>启动容器</h1><p>docker run -d <br>  –name myredis <br>  –restart always <br>  -p 6379:6379 <br>  redis:7 <br>  redis-server <br>  –appendonly yes<br>4.2 主机连通验证<br>查看虚拟机 IP 地址后，在 Windows 主机测试端口连通性：<br>powershell</p>
-<h1 id="测试端口连通性"><a href="#测试端口连通性" class="headerlink" title="测试端口连通性"></a>测试端口连通性</h1><p>Test-NetConnection 192.168.110.128 -Port 6379<br>Spring Boot 项目配置文件中填写虚拟机地址：<br>yaml<br>spring:<br>  data:<br>    redis:<br>      host: 192.168.110.128<br>      port: 6379<br>五、Spring Boot 集成 Redis 缓存<br>5.1 缓存注解配置<br>针对高频查询接口添加缓存注解，写操作同步清除缓存保证数据一致性：<br>表格<br>接口场景	注解配置	缓存前缀<br>热门攻略列表	@Cacheable(value&#x3D;”strategy:hot”, key&#x3D;”#limit”)	strategy:hot<br>首页轮播图	@Cacheable(value&#x3D;”strategy:banner”, key&#x3D;”#limit”)	strategy:banner<br>城市列表	@Cacheable(value&#x3D;”strategy:cities”, key&#x3D;”‘all’”)	strategy:cities<br>攻略发布、编辑、删除、上下线等写操作，添加 @CacheEvict 注解清空对应缓存。<br>5.2 踩坑：LocalDateTime 序列化失败<br>⚠️ 现象：访问带缓存的接口报 500 错误，Redis 中没有生成缓存数据。<br>根因：自定义 RedisConfig 中手动 new ObjectMapper() 没有注册 Java 8 时间模块，LocalDateTime 类型字段序列化失败。<br>解决方案：在 Redis 配置类中完善 ObjectMapper 配置：<br>java<br>运行<br>@Configuration<br>public class RedisConfig {</p>
-<pre><code>@Bean
-public RedisTemplate&lt;String, Object&gt; redisTemplate(RedisConnectionFactory factory) &#123;
-    RedisTemplate&lt;String, Object&gt; template = new RedisTemplate&lt;&gt;();
-    template.setConnectionFactory(factory);
+        <p>The user wants me to generate the markdown file content with the frontmatter format they specified. I should output it as a markdown code block with the absolute file path. They said “直接生成md文件内容格式” - generate the md file content directly.</p>
+<p>I’m in Chat Mode (read-only), so I cannot create files directly. I need to output the content in a markdown code block with the absolute file path as the language ID prefix.</p>
+<p>Wait, but the instructions say I should output content in a Markdown Code Block with the absolute path. Let me do that. The file should probably go in the project root or wherever the user wants. Let me put it in the project root directory.</p>
+<p>Actually, the user said “直接生成md文件内容格式，参考：” with the frontmatter example. They want the full markdown content. Let me generate it as a code block with the file path.</p>
+<p>The file path should be absolute. The project is at d:\桌面\Travel_Project. I’ll put it there.</p>
+<figure class="highlight markdown"><figcaption><span>d:\桌面\Travel_Project\vmware-docker-redis-cache-notes.md</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br></pre></td><td class="code"><pre><span class="line">---</span><br><span class="line">title: 从装系统到 Redis 缓存跑通：完整踩坑记录</span><br><span class="line">date: 2026-09-16 21:43:18</span><br><span class="line">tags:</span><br><span class="line"><span class="bullet">  -</span> redis</span><br><span class="line"><span class="bullet">  -</span> docker</span><br><span class="line"><span class="bullet">  -</span> vmware</span><br><span class="line"><span class="bullet">  -</span> ubuntu</span><br><span class="line"><span class="section">  - springboot</span></span><br><span class="line"><span class="section">---</span></span><br><span class="line"></span><br><span class="line"><span class="section"># 从装系统到 Redis 缓存跑通：完整踩坑记录</span></span><br><span class="line"></span><br><span class="line"><span class="quote">&gt; 环境：Windows 11 主机 + VMware Workstation 17 Pro + Ubuntu 26.04 LTS + Docker 29.8.1 + Redis 7 + Spring Boot 3</span></span><br><span class="line"></span><br><span class="line"><span class="section">## 任务一：VMware 创建 Ubuntu 虚拟机</span></span><br><span class="line"></span><br><span class="line"><span class="section">### 关键决策</span></span><br><span class="line"><span class="bullet">-</span> 选「稍后安装操作系统」而不是 Easy Install（避免新版 Ubuntu 安装器兼容问题）</span><br><span class="line"><span class="bullet">-</span> 版本选 Ubuntu 64-bit</span><br><span class="line"><span class="bullet">-</span> 磁盘设 40GB（动态分配，不占满）</span><br><span class="line"><span class="bullet">-</span> 网络模式选 <span class="strong">**NAT**</span>（WiFi 网卡不支持桥接，详见任务二）</span><br><span class="line"></span><br><span class="line"><span class="section">### 踩坑：VMware 安装目录改名导致引擎丢失</span></span><br><span class="line"></span><br><span class="line"><span class="strong">**现象**</span>：开机报 <span class="code">`Unable to find the VMX binary &#x27;D:\网安\vmware-vmx.exe&#x27;`</span></span><br><span class="line"></span><br><span class="line"><span class="strong">**根因**</span>：之前把 VMware 安装文件夹从 <span class="code">`网安`</span> 改名为 <span class="code">`Vmware`</span>，但注册表里记录的还是老路径。</span><br><span class="line"></span><br><span class="line"><span class="strong">**解决**</span>：把文件夹名改回 <span class="code">`网安`</span>，注册表路径对上即可。</span><br><span class="line"></span><br><span class="line"><span class="quote">&gt; <span class="strong">**教训**</span>：软件安装目录装完后不要改名，所有配置/服务都记录着绝对路径。</span></span><br><span class="line"></span><br><span class="line">---</span><br><span class="line"></span><br><span class="line"><span class="section">## 任务二：网络配置（耗时最长，踩坑最多）</span></span><br><span class="line"></span><br><span class="line"><span class="section">### 问题 1：虚拟机拿到 169.254.x.x 地址</span></span><br><span class="line"></span><br><span class="line"><span class="strong">**原因**</span>：VMware 桥接模式下，WiFi 芯片/驱动只接收发给自己 MAC 的包，拒绝转发给虚拟机 MAC → DHCP 拿不到 IP。</span><br><span class="line"></span><br><span class="line"><span class="strong">**解决**</span>：改用 <span class="strong">**NAT 模式**</span>（VMnet8），Windows 能直接访问虚拟机，完全满足开发需求。</span><br><span class="line"></span><br><span class="line"><span class="section">### 问题 2：NAT 模式下依然拿不到 IP</span></span><br><span class="line"></span><br><span class="line"><span class="strong">**根因**</span>：Windows 的虚拟网卡（VMnet1/VMnet8）丢失了——因为之前重命名 VMware 安装文件夹，导致虚拟网卡驱动信息损坏。</span><br><span class="line"></span><br><span class="line"><span class="strong">**解决**</span>：VMware → 编辑 → 虚拟网络编辑器 → 更改设置 → <span class="strong">**还原默认设置**</span>，重建 VMnet0/1/8。</span><br><span class="line"></span><br><span class="line"><span class="section">### 问题 3：NetworkManager 缓存导致回退到 169.254</span></span><br><span class="line"></span><br><span class="line">即使虚拟网卡恢复了，Ubuntu 里的 NetworkManager 还缓存着失败状态。</span><br><span class="line"></span><br><span class="line"><span class="strong">**解决**</span>：</span><br><span class="line"></span><br><span class="line"><span class="code">```bash</span></span><br><span class="line"><span class="code">sudo nmcli connection delete &quot;netplan-ens33&quot;</span></span><br><span class="line"><span class="code">sudo nmcli connection add type ethernet ifname ens33 con-name &quot;ens33-auto&quot; ipv4.method auto</span></span><br><span class="line"><span class="code">sudo nmcli connection up &quot;ens33-auto&quot;</span></span><br></pre></td></tr></table></figure>
 
-    Jackson2JsonRedisSerializer&lt;Object&gt; serializer = new Jackson2JsonRedisSerializer&lt;&gt;(Object.class);
-    ObjectMapper om = new ObjectMapper();
-    // 注册 Java 8 时间模块
-    om.registerModule(new JavaTimeModule());
-    // 关闭时间转时间戳
-    om.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-    serializer.setObjectMapper(om);
+<h3 id="问题-4：DNS-解析失败"><a href="#问题-4：DNS-解析失败" class="headerlink" title="问题 4：DNS 解析失败"></a>问题 4：DNS 解析失败</h3><p>网络通了但 <code>ping baidu.com</code> 报域名解析错误。</p>
+<p><strong>解决</strong>：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">sudo</span> nmcli connection modify <span class="string">&quot;ens33-auto&quot;</span> ipv4.dns <span class="string">&quot;8.8.8.8 114.114.114.114&quot;</span></span><br><span class="line"><span class="built_in">sudo</span> nmcli connection up <span class="string">&quot;ens33-auto&quot;</span></span><br></pre></td></tr></table></figure>
 
-    template.setKeySerializer(new StringRedisSerializer());
-    template.setValueSerializer(serializer);
-    template.setHashKeySerializer(new StringRedisSerializer());
-    template.setHashValueSerializer(serializer);
-    return template;
-&#125;
+<hr>
+<h2 id="任务三：安装-Docker"><a href="#任务三：安装-Docker" class="headerlink" title="任务三：安装 Docker"></a>任务三：安装 Docker</h2><h3 id="选择-apt-安装-docker-io（而非-docker-ce）"><a href="#选择-apt-安装-docker-io（而非-docker-ce）" class="headerlink" title="选择 apt 安装 docker.io（而非 docker-ce）"></a>选择 apt 安装 docker.io（而非 docker-ce）</h3><p>阿里云 docker-ce 源下载 22MB 用了十几分钟，改为 Ubuntu 官方源的 <code>docker.io</code> 包：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">sudo</span> apt update</span><br><span class="line"><span class="built_in">sudo</span> apt install -y docker.io</span><br></pre></td></tr></table></figure>
 
-@Bean
-public CacheManager cacheManager(RedisConnectionFactory factory) &#123;
-    // 同上，cacheManager 也需要使用配置好的序列化器
-    // ...
-&#125;
-</code></pre>
-<p>}<br>注意：redisTemplate 和 cacheManager 两个 Bean 都要使用正确配置的序列化器，否则依然会报错。<br>六、最终验证结果<br>访问热门攻略接口，正常返回 JSON 数据 ✅<br>Redis 中生成对应缓存键 strategy:hot::5 ✅<br>重复请求同一接口，响应耗时大幅下降，缓存生效 ✅<br>执行新增 &#x2F; 编辑操作，对应缓存自动清除 ✅<br>七、踩坑经验总结<br>表格<br>问题类型	核心教训<br>VMware 目录改名	软件安装目录不要随意重命名，改了就还原，不要硬修注册表<br>WiFi 桥接模式	无线网卡基本不支持桥接，开发测试直接用 NAT 模式<br>虚拟网卡丢失	网络异常先还原虚拟网络默认设置，比重装驱动快<br>网络状态缓存	nmcli 重建连接比重启虚拟机、反复插拔网卡更高效<br>阿里云加速器	个人免费加速器已停服，换用公共镜像站<br>时间序列化	自定义 ObjectMapper 必须注册 JavaTimeModule，否则 LocalDateTime 必报错<br>后续会继续更新「旅图足迹」项目的开发踩坑与功能实现记录，欢迎关注。</p>
+<h3 id="配置镜像加速器"><a href="#配置镜像加速器" class="headerlink" title="配置镜像加速器"></a>配置镜像加速器</h3><ul>
+<li>阿里云个人加速器 <code>https://xxx.mirror.aliyuncs.com</code> <strong>已停服</strong>（返回 403，阿里云公告调整了 ACR 加速器功能）</li>
+<li>改用公共加速器：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">echo</span> <span class="string">&#x27;&#123;&quot;registry-mirrors&quot;:[&quot;https://docker.m.daocloud.io&quot;,&quot;https://docker.1ms.run&quot;,&quot;https://dockerpull.com&quot;]&#125;&#x27;</span> | <span class="built_in">sudo</span> <span class="built_in">tee</span> /etc/docker/daemon.json</span><br><span class="line"><span class="built_in">sudo</span> systemctl restart docker</span><br></pre></td></tr></table></figure>
+
+<h3 id="用户加入-docker-组"><a href="#用户加入-docker-组" class="headerlink" title="用户加入 docker 组"></a>用户加入 docker 组</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">sudo</span> usermod -aG docker yukc</span><br><span class="line"><span class="comment"># 重启后生效</span></span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="任务四：运行-Redis-容器"><a href="#任务四：运行-Redis-容器" class="headerlink" title="任务四：运行 Redis 容器"></a>任务四：运行 Redis 容器</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">docker pull redis:7</span><br><span class="line">docker run -d --name myredis -p 6379:6379 redis:7</span><br><span class="line">docker update --restart=always myredis  <span class="comment"># 开机自启</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="Windows-访问虚拟机-Redis"><a href="#Windows-访问虚拟机-Redis" class="headerlink" title="Windows 访问虚拟机 Redis"></a>Windows 访问虚拟机 Redis</h3><p>虚拟机 IP：<code>192.168.110.128</code>，Windows 测试连通：</p>
+<figure class="highlight powershell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">Test-NetConnection</span> <span class="number">192.168</span>.<span class="number">110.128</span> <span class="literal">-Port</span> <span class="number">6379</span></span><br></pre></td></tr></table></figure>
+
+<p>Spring Boot <code>application.yml</code>：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">spring:</span></span><br><span class="line">  <span class="attr">data:</span></span><br><span class="line">    <span class="attr">redis:</span></span><br><span class="line">      <span class="attr">host:</span> <span class="number">192.168</span><span class="number">.110</span><span class="number">.128</span></span><br><span class="line">      <span class="attr">port:</span> <span class="number">6379</span></span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="任务五：Spring-Boot-Redis-缓存开发"><a href="#任务五：Spring-Boot-Redis-缓存开发" class="headerlink" title="任务五：Spring Boot Redis 缓存开发"></a>任务五：Spring Boot Redis 缓存开发</h2><h3 id="缓存注解"><a href="#缓存注解" class="headerlink" title="缓存注解"></a>缓存注解</h3><table>
+<thead>
+<tr>
+<th>接口</th>
+<th>注解</th>
+<th>缓存名</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>热门攻略</td>
+<td><code>@Cacheable(value=&quot;strategy:hot&quot;, key=&quot;#limit&quot;)</code></td>
+<td>strategy:hot</td>
+</tr>
+<tr>
+<td>轮播图</td>
+<td><code>@Cacheable(value=&quot;strategy:banner&quot;, key=&quot;#limit&quot;)</code></td>
+<td>strategy:banner</td>
+</tr>
+<tr>
+<td>城市列表</td>
+<td><code>@Cacheable(value=&quot;strategy:cities&quot;, key=&quot;&#39;all&#39;&quot;)</code></td>
+<td>strategy:cities</td>
+</tr>
+</tbody></table>
+<p>写操作（发布&#x2F;编辑&#x2F;删除&#x2F;上下线）加 <code>@CacheEvict</code> 清空缓存，保证一致性。</p>
+<h3 id="关键坑：LocalDateTime-序列化失败"><a href="#关键坑：LocalDateTime-序列化失败" class="headerlink" title="关键坑：LocalDateTime 序列化失败"></a>关键坑：LocalDateTime 序列化失败</h3><p><strong>现象</strong>：访问热门攻略接口 500，Redis 为空。</p>
+<p><strong>根因</strong>：<code>RedisConfig</code> 里手动 <code>new ObjectMapper()</code> 没有注册 Java 8 时间模块，序列化 <code>Strategy</code> 的 <code>LocalDateTime</code> 字段报错。</p>
+<p><strong>修复</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">ObjectMapper</span> <span class="variable">om</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ObjectMapper</span>();</span><br><span class="line">om.registerModule(<span class="keyword">new</span> <span class="title class_">JavaTimeModule</span>());</span><br><span class="line">om.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);</span><br></pre></td></tr></table></figure>
+
+<p><code>redisTemplate</code> 和 <code>cacheManager</code> 两个 Bean 都要改。</p>
+<hr>
+<h2 id="验证结果"><a href="#验证结果" class="headerlink" title="验证结果"></a>验证结果</h2><ol>
+<li>访问 <code>/strategy/hot?limit=5</code> 返回 JSON 数据 ✅</li>
+<li><code>redis-cli keys &quot;*&quot;</code> 出现 <code>strategy:hot::5</code> ✅</li>
+<li>缓存 TTL 30 分钟，不缓存 null ✅</li>
+</ol>
+<hr>
+<h2 id="经验总结"><a href="#经验总结" class="headerlink" title="经验总结"></a>经验总结</h2><table>
+<thead>
+<tr>
+<th>问题类型</th>
+<th>教训</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>VMware 改名</td>
+<td>安装目录绝不改名，改了就还原</td>
+</tr>
+<tr>
+<td>WiFi 桥接</td>
+<td>无线网卡基本不支持桥接，直接用 NAT</td>
+</tr>
+<tr>
+<td>虚拟网卡丢失</td>
+<td>还原默认设置一键重建</td>
+</tr>
+<tr>
+<td>网络状态缓存</td>
+<td>nmcli 重建连接比反复重启更有效</td>
+</tr>
+<tr>
+<td>阿里云加速器</td>
+<td>已停服，换 DaoCloud&#x2F;1ms.run 公共源</td>
+</tr>
+<tr>
+<td>LocalDateTime</td>
+<td>自定义 ObjectMapper 必须注册 JavaTimeModule</td>
+</tr>
+</tbody></table>
 
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://yukc01.github.io/2026/09/16/%E4%BB%8E%E8%A3%85%E7%B3%BB%E7%BB%9F%E5%88%B0-Redis-%E7%BC%93%E5%AD%98%E8%B7%91%E9%80%9A%EF%BC%9A%E5%AE%8C%E6%95%B4%E8%B8%A9%E5%9D%91%E8%AE%B0%E5%BD%95/" data-id="cmu45p9rf000fvg9w8ugpaoia" data-title="从装系统到 Redis 缓存跑通：完整踩坑记录" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://yukc01.github.io/2026/09/16/%E4%BB%8E%E8%A3%85%E7%B3%BB%E7%BB%9F%E5%88%B0-Redis-%E7%BC%93%E5%AD%98%E8%B7%91%E9%80%9A%EF%BC%9A%E5%AE%8C%E6%95%B4%E8%B8%A9%E5%9D%91%E8%AE%B0%E5%BD%95/" data-id="cmu46bn270001bw9wc2hbckqe" data-title="" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
-  <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/redis-docker/" rel="tag">-redis -docker</a></li></ul>
-
     </footer>
   </div>
   
@@ -200,7 +255,7 @@ public CacheManager cacheManager(RedisConnectionFactory factory) &#123;
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://yukc01.github.io/2026/09/15/VMware-Ubuntu-%E8%99%9A%E6%8B%9F%E6%9C%BA%E9%83%A8%E7%BD%B2-Docker-Redis-%E5%AE%8C%E6%95%B4%E6%8C%87%E5%8D%97/" data-id="cmu45p9qo0000vg9w431hbp5k" data-title="VMware + Ubuntu 虚拟机部署 Docker + Redis 完整实战指南" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://yukc01.github.io/2026/09/15/VMware-Ubuntu-%E8%99%9A%E6%8B%9F%E6%9C%BA%E9%83%A8%E7%BD%B2-Docker-Redis-%E5%AE%8C%E6%95%B4%E6%8C%87%E5%8D%97/" data-id="cmu46bn2b0004bw9w676dcoej" data-title="VMware + Ubuntu 虚拟机部署 Docker + Redis 完整实战指南" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -248,7 +303,7 @@ public CacheManager cacheManager(RedisConnectionFactory factory) &#123;
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://yukc01.github.io/2026/09/15/Docker-%E5%85%A5%E9%97%A8%E5%AE%9E%E6%88%98%EF%BC%9AWindows-%E7%8E%AF%E5%A2%83%E4%B8%8B%E9%83%A8%E7%BD%B2-Redis-%E5%AE%8C%E6%95%B4%E6%8C%87%E5%8D%97/" data-id="cmu45p9rh000gvg9wank61wfj" data-title="Docker 入门实战：Windows 环境下部署 Redis 完整指南" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://yukc01.github.io/2026/09/15/Docker-%E5%85%A5%E9%97%A8%E5%AE%9E%E6%88%98%EF%BC%9AWindows-%E7%8E%AF%E5%A2%83%E4%B8%8B%E9%83%A8%E7%BD%B2-Redis-%E5%AE%8C%E6%95%B4%E6%8C%87%E5%8D%97/" data-id="cmu46bn1z0000bw9wb1dt24zt" data-title="Docker 入门实战：Windows 环境下部署 Redis 完整指南" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -289,7 +344,7 @@ public CacheManager cacheManager(RedisConnectionFactory factory) &#123;
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://yukc01.github.io/2026/09/14/%E7%AC%AC%E4%B8%80%E4%B8%AA%E5%8D%9A%E5%AE%A2%E7%AC%94%E8%AE%B0/" data-id="cmu45p9rm000jvg9wb8cmckav" data-title="第一个博客笔记" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://yukc01.github.io/2026/09/14/%E7%AC%AC%E4%B8%80%E4%B8%AA%E5%8D%9A%E5%AE%A2%E7%AC%94%E8%AE%B0/" data-id="cmu46bn2e0008bw9w4r65b7uu" data-title="第一个博客笔记" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -329,7 +384,7 @@ public CacheManager cacheManager(RedisConnectionFactory factory) &#123;
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://yukc01.github.io/2026/09/14/%E6%B5%8B%E8%AF%95%E6%96%87%E7%AB%A0/" data-id="cmu45p9rk000ivg9w0rok0uxz" data-title="测试文章" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://yukc01.github.io/2026/09/14/%E6%B5%8B%E8%AF%95%E6%96%87%E7%AB%A0/" data-id="cmu46bn2c0005bw9w9fynd9eu" data-title="测试文章" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -361,7 +416,7 @@ public CacheManager cacheManager(RedisConnectionFactory factory) &#123;
   <div class="widget-wrap">
     <h3 class="widget-title">标签</h3>
     <div class="widget">
-      <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/redis-docker/" rel="tag">-redis -docker</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%85%A5%E9%97%A8%E5%AE%9E%E6%88%98-Docker/" rel="tag">-入门实战 -Docker</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Docker/" rel="tag">Docker</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Redis/" rel="tag">Redis</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Ubuntu/" rel="tag">Ubuntu</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/VMware/" rel="tag">VMware</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%9D%E4%BD%93%E9%AA%8C/" rel="tag">初体验</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%B5%8B%E8%AF%95/" rel="tag">测试</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA/" rel="tag">环境搭建</a></li></ul>
+      <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%85%A5%E9%97%A8%E5%AE%9E%E6%88%98-Docker/" rel="tag">-入门实战 -Docker</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Docker/" rel="tag">Docker</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Redis/" rel="tag">Redis</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Ubuntu/" rel="tag">Ubuntu</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/VMware/" rel="tag">VMware</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%9D%E4%BD%93%E9%AA%8C/" rel="tag">初体验</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%B5%8B%E8%AF%95/" rel="tag">测试</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA/" rel="tag">环境搭建</a></li></ul>
     </div>
   </div>
 
@@ -371,7 +426,7 @@ public CacheManager cacheManager(RedisConnectionFactory factory) &#123;
   <div class="widget-wrap">
     <h3 class="widget-title">标签云</h3>
     <div class="widget tagcloud">
-      <a href="/tags/redis-docker/" style="font-size: 10px;">-redis -docker</a> <a href="/tags/%E5%85%A5%E9%97%A8%E5%AE%9E%E6%88%98-Docker/" style="font-size: 10px;">-入门实战 -Docker</a> <a href="/tags/Docker/" style="font-size: 10px;">Docker</a> <a href="/tags/Redis/" style="font-size: 10px;">Redis</a> <a href="/tags/Ubuntu/" style="font-size: 10px;">Ubuntu</a> <a href="/tags/VMware/" style="font-size: 10px;">VMware</a> <a href="/tags/%E5%88%9D%E4%BD%93%E9%AA%8C/" style="font-size: 10px;">初体验</a> <a href="/tags/%E6%B5%8B%E8%AF%95/" style="font-size: 10px;">测试</a> <a href="/tags/%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA/" style="font-size: 10px;">环境搭建</a>
+      <a href="/tags/%E5%85%A5%E9%97%A8%E5%AE%9E%E6%88%98-Docker/" style="font-size: 10px;">-入门实战 -Docker</a> <a href="/tags/Docker/" style="font-size: 10px;">Docker</a> <a href="/tags/Redis/" style="font-size: 10px;">Redis</a> <a href="/tags/Ubuntu/" style="font-size: 10px;">Ubuntu</a> <a href="/tags/VMware/" style="font-size: 10px;">VMware</a> <a href="/tags/%E5%88%9D%E4%BD%93%E9%AA%8C/" style="font-size: 10px;">初体验</a> <a href="/tags/%E6%B5%8B%E8%AF%95/" style="font-size: 10px;">测试</a> <a href="/tags/%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA/" style="font-size: 10px;">环境搭建</a>
     </div>
   </div>
 
@@ -393,7 +448,7 @@ public CacheManager cacheManager(RedisConnectionFactory factory) &#123;
       <ul>
         
           <li>
-            <a href="/2026/09/16/%E4%BB%8E%E8%A3%85%E7%B3%BB%E7%BB%9F%E5%88%B0-Redis-%E7%BC%93%E5%AD%98%E8%B7%91%E9%80%9A%EF%BC%9A%E5%AE%8C%E6%95%B4%E8%B8%A9%E5%9D%91%E8%AE%B0%E5%BD%95/">从装系统到 Redis 缓存跑通：完整踩坑记录</a>
+            <a href="/2026/09/16/%E4%BB%8E%E8%A3%85%E7%B3%BB%E7%BB%9F%E5%88%B0-Redis-%E7%BC%93%E5%AD%98%E8%B7%91%E9%80%9A%EF%BC%9A%E5%AE%8C%E6%95%B4%E8%B8%A9%E5%9D%91%E8%AE%B0%E5%BD%95/">(no title)</a>
           </li>
         
           <li>
