@@ -4,22 +4,19 @@
   <meta charset="utf-8">
   
   
-  <title>Kyson的技术笔记</title>
+  <title>从装系统到 Redis 缓存跑通：完整踩坑记录 | Kyson的技术笔记</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-  <meta name="description" content="专注Java后端开发、SpringBoot项目实战、架构优化踩坑记录，分享毕业设计与技术成长笔记。">
-<meta property="og:type" content="website">
-<meta property="og:title" content="Kyson的技术笔记">
-<meta property="og:url" content="https://yukc01.github.io/index.html">
+  <meta name="description" content="从虚拟机搭建到 Redis 缓存跑通：VMware + Ubuntu + Docker 全流程踩坑实录本文完整记录了从 0 开始在 VMware 中部署 Ubuntu 虚拟机，到 Docker 安装、Redis 容器启动，最终与 Spring Boot 项目联调跑通缓存功能的全流程。全程踩坑密集，从网络配置、镜像加速到 Java 序列化问题逐一记录，所有方案均经过实测验证。环境说明表格类别	版本">
+<meta property="og:type" content="article">
+<meta property="og:title" content="从装系统到 Redis 缓存跑通：完整踩坑记录">
+<meta property="og:url" content="https://yukc01.github.io/2026/09/16/%E4%BB%8E%E8%A3%85%E7%B3%BB%E7%BB%9F%E5%88%B0-Redis-%E7%BC%93%E5%AD%98%E8%B7%91%E9%80%9A%EF%BC%9A%E5%AE%8C%E6%95%B4%E8%B8%A9%E5%9D%91%E8%AE%B0%E5%BD%95/index.html">
 <meta property="og:site_name" content="Kyson的技术笔记">
-<meta property="og:description" content="专注Java后端开发、SpringBoot项目实战、架构优化踩坑记录，分享毕业设计与技术成长笔记。">
+<meta property="og:description" content="从虚拟机搭建到 Redis 缓存跑通：VMware + Ubuntu + Docker 全流程踩坑实录本文完整记录了从 0 开始在 VMware 中部署 Ubuntu 虚拟机，到 Docker 安装、Redis 容器启动，最终与 Spring Boot 项目联调跑通缓存功能的全流程。全程踩坑密集，从网络配置、镜像加速到 Java 序列化问题逐一记录，所有方案均经过实测验证。环境说明表格类别	版本">
 <meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-09-16T13:43:18.000Z">
+<meta property="article:modified_time" content="2026-09-16T13:48:07.471Z">
 <meta property="article:author" content="Kyson Yu">
-<meta property="article:tag" content="Java">
-<meta property="article:tag" content="SpringBoot">
-<meta property="article:tag" content="MyBatis-Plus">
-<meta property="article:tag" content="后端开发">
-<meta property="article:tag" content="毕业设计">
-<meta property="article:tag" content="旅图足迹">
+<meta property="article:tag" content="-redis -docker">
 <meta name="twitter:card" content="summary">
   
     <link rel="alternate" href="/atom.xml" title="Kyson的技术笔记" type="application/atom+xml">
@@ -85,9 +82,7 @@
 </header>
 
       <div class="outer">
-        <section id="main">
-  
-    <article id="post-从装系统到-Redis-缓存跑通：完整踩坑记录" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+        <section id="main"><article id="post-从装系统到-Redis-缓存跑通：完整踩坑记录" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
   <div class="article-meta">
     <a href="/2026/09/16/%E4%BB%8E%E8%A3%85%E7%B3%BB%E7%BB%9F%E5%88%B0-Redis-%E7%BC%93%E5%AD%98%E8%B7%91%E9%80%9A%EF%BC%9A%E5%AE%8C%E6%95%B4%E8%B8%A9%E5%9D%91%E8%AE%B0%E5%BD%95/" class="article-date">
   <time class="dt-published" datetime="2026-09-16T13:43:18.000Z" itemprop="datePublished">2026-09-16</time>
@@ -100,8 +95,8 @@
       <header class="article-header">
         
   
-    <h1 itemprop="name">
-      <a class="p-name article-title" href="/2026/09/16/%E4%BB%8E%E8%A3%85%E7%B3%BB%E7%BB%9F%E5%88%B0-Redis-%E7%BC%93%E5%AD%98%E8%B7%91%E9%80%9A%EF%BC%9A%E5%AE%8C%E6%95%B4%E8%B8%A9%E5%9D%91%E8%AE%B0%E5%BD%95/">从装系统到 Redis 缓存跑通：完整踩坑记录</a>
+    <h1 class="p-name article-title" itemprop="headline name">
+      从装系统到 Redis 缓存跑通：完整踩坑记录
     </h1>
   
 
@@ -158,189 +153,19 @@ public CacheManager cacheManager(RedisConnectionFactory factory) &#123;
     </footer>
   </div>
   
-</article>
-
-
-
+    
+<nav id="article-nav">
   
-    <article id="post-VMware-Ubuntu-虚拟机部署-Docker-Redis-完整指南" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
-  <div class="article-meta">
-    <a href="/2026/09/15/VMware-Ubuntu-%E8%99%9A%E6%8B%9F%E6%9C%BA%E9%83%A8%E7%BD%B2-Docker-Redis-%E5%AE%8C%E6%95%B4%E6%8C%87%E5%8D%97/" class="article-date">
-  <time class="dt-published" datetime="2026-09-15T12:00:00.000Z" itemprop="datePublished">2026-09-15</time>
-</a>
-    
-  <div class="article-category">
-    <a class="article-category-link" href="/categories/%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA/">环境搭建</a>►<a class="article-category-link" href="/categories/%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA/%E5%90%8E%E7%AB%AF%E5%BC%80%E5%8F%91/">后端开发</a>
-  </div>
-
-  </div>
-  <div class="article-inner">
-    
-    
-      <header class="article-header">
-        
   
-    <h1 itemprop="name">
-      <a class="p-name article-title" href="/2026/09/15/VMware-Ubuntu-%E8%99%9A%E6%8B%9F%E6%9C%BA%E9%83%A8%E7%BD%B2-Docker-Redis-%E5%AE%8C%E6%95%B4%E6%8C%87%E5%8D%97/">VMware + Ubuntu 虚拟机部署 Docker + Redis 完整实战指南</a>
-    </h1>
+    <a href="/2026/09/15/VMware-Ubuntu-%E8%99%9A%E6%8B%9F%E6%9C%BA%E9%83%A8%E7%BD%B2-Docker-Redis-%E5%AE%8C%E6%95%B4%E6%8C%87%E5%8D%97/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">后一篇</strong>
+      <div class="article-nav-title">VMware + Ubuntu 虚拟机部署 Docker + Redis 完整实战指南</div>
+    </a>
   
+</nav>
 
-      </header>
-    
-    <div class="e-content article-entry" itemprop="articleBody">
-      
-        <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>在 Windows 环境下使用 Docker，很多人会优先选择 WSL2 方案。但国内网络环境下，WSL 在线安装频繁卡死、内核更新异常、GitHub 连接重置，尤其是部署 Redis 这类常驻后台服务时，子系统稳定性不可控，出问题排查成本很高。</p>
-<p>如果你 WSL 安装屡屡碰壁，或者需要一个稳定、可控的环境长期运行中间件服务，<strong>VMware + Ubuntu 虚拟机</strong>是非常成熟的替代方案：环境隔离完整、网络配置灵活、故障可排查、资源可精准控制，适合长期部署 Redis、MySQL 等常驻服务。</p>
-<p>本文从虚拟机创建到 Redis 生产级部署全流程落地，附所有踩坑点与优化方案，全程可复现。</p>
-        
-          <p class="article-more-link">
-            <a href="/2026/09/15/VMware-Ubuntu-%E8%99%9A%E6%8B%9F%E6%9C%BA%E9%83%A8%E7%BD%B2-Docker-Redis-%E5%AE%8C%E6%95%B4%E6%8C%87%E5%8D%97/#more">Read More</a>
-          </p>
-        
-      
-    </div>
-    <footer class="article-footer">
-      <a data-url="https://yukc01.github.io/2026/09/15/VMware-Ubuntu-%E8%99%9A%E6%8B%9F%E6%9C%BA%E9%83%A8%E7%BD%B2-Docker-Redis-%E5%AE%8C%E6%95%B4%E6%8C%87%E5%8D%97/" data-id="cmu45p9qo0000vg9w431hbp5k" data-title="VMware + Ubuntu 虚拟机部署 Docker + Redis 完整实战指南" class="article-share-link"><span class="fa fa-share">分享</span></a>
-      
-      
-      
-  <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Docker/" rel="tag">Docker</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Redis/" rel="tag">Redis</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Ubuntu/" rel="tag">Ubuntu</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/VMware/" rel="tag">VMware</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA/" rel="tag">环境搭建</a></li></ul>
-
-    </footer>
-  </div>
   
 </article>
-
-
-
-  
-    <article id="post-Docker-入门实战：Windows-环境下部署-Redis-完整指南" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
-  <div class="article-meta">
-    <a href="/2026/09/15/Docker-%E5%85%A5%E9%97%A8%E5%AE%9E%E6%88%98%EF%BC%9AWindows-%E7%8E%AF%E5%A2%83%E4%B8%8B%E9%83%A8%E7%BD%B2-Redis-%E5%AE%8C%E6%95%B4%E6%8C%87%E5%8D%97/" class="article-date">
-  <time class="dt-published" datetime="2026-09-15T11:27:01.000Z" itemprop="datePublished">2026-09-15</time>
-</a>
-    
-  </div>
-  <div class="article-inner">
-    
-    
-      <header class="article-header">
-        
-  
-    <h1 itemprop="name">
-      <a class="p-name article-title" href="/2026/09/15/Docker-%E5%85%A5%E9%97%A8%E5%AE%9E%E6%88%98%EF%BC%9AWindows-%E7%8E%AF%E5%A2%83%E4%B8%8B%E9%83%A8%E7%BD%B2-Redis-%E5%AE%8C%E6%95%B4%E6%8C%87%E5%8D%97/">Docker 入门实战：Windows 环境下部署 Redis 完整指南</a>
-    </h1>
-  
-
-      </header>
-    
-    <div class="e-content article-entry" itemprop="articleBody">
-      
-        <p>前言<br>在 Windows 上做开发时，安装 Redis 经常会遇到环境配置繁琐、服务管理麻烦、版本切换困难等问题。使用 Docker 容器化部署可以完美解决这些痛点，一键启动、环境隔离、数据持久化，非常适合本地开发和常驻后台使用。<br>一、Docker 核心概念<br>三个最核心的基础概念，理解后就能上手大部分操作：<br>镜像（Image）<br>相当于软件的「安装包」，比如 Redis 官方镜像就是打包好的完整 Redis 程序，包含所有依赖和运行环境，只读不可修改。<br>容器（Container）<br>镜像运行起来的实例，相当于「安装好并正在运行的软件」。每个容器互相隔离，拥有独立的文件系统和网络，删除容器不会影响本地系统。<br>仓库（Registry）<br>存放镜像的「软件商店」，最常用的是 Docker Hub，官方的 Redis、MySQL、Nginx 等镜像都可以从上面拉取。<br>二、为什么用 Docker 跑 Redis<br>对比 Windows 原生安装 Redis，优势非常明显：<br>一键部署，告别繁琐配置：不用找安装包、配环境变量、注册系统服务，一条命令就能启动完整可用的 Redis。<br>环境隔离，不污染系统：Redis 的配置、数据、日志都在容器内，卸载就是删除容器，不会留下残留文件和注册表项。<br>版本随意切换：想切换 Redis 6、7 或最新版，只需要更换镜像标签，几秒即可完成，无需卸载重装。<br>开机自启，稳定省心：配置重启策略后，电脑开机 Docker 会自动拉起 Redis，和系统服务效果一致。<br>资源可控：可以精确限制 Redis 占用的 CPU、内存上限，避免占用过多系统资源。<br>三、环境准备与安装<br>3.1 WSL 2 前置要求<br>Docker Desktop for Windows 默认基于 WSL 2 运行，这是官方推荐的标准方案，性能优于 Hyper-V。<br>版本要求：WSL 2 最低版本 2.1.5，2.7.14 及以上稳定版均可完美兼容。<br>安装完成后必须重启电脑才能生效。<br>3.2 安装 Docker Desktop<br>从 Docker 官网下载 Windows 版安装包。<br>双击安装，配置页务必勾选「Use WSL 2 instead of Hyper-V」，不要选择 Windows 容器。<br>安装完成后重启电脑。<br>3.3 基础配置优化<br>启动 Docker Desktop，点击右上角设置图标：<br>General：确认「Use the WSL 2 based engine」已勾选（默认开启）。<br>Resources → WSL Integration：确保你的 WSL 发行版开关已打开，点击 Apply &amp; restart 生效。<br>Resources → Advanced：可手动调整 WSL 的内存、CPU 上限，16GB 内存建议分配 4GB 给 WSL，跑 Redis 完全够用。<br>3.4 验证安装<br>打开 Windows 终端（PowerShell &#x2F; CMD 均可），输入：<br>cmd<br>docker –version<br>输出版本号（如 Docker version 27.x.x）即说明安装成功。<br>四、Docker 部署 Redis 完整步骤<br>4.1 拉取官方镜像<br>将 Redis 镜像拉取到本地：<br>cmd<br>docker pull redis:latest<br>redis:latest 表示最新稳定版，也可指定版本，例如 redis:7-alpine（轻量版，体积更小）。<br>4.2 最简启动（临时测试用）<br>快速启动验证环境是否正常：<br>cmd<br>docker run -d –name redis-test -p 6379:6379 redis:latest<br>注意：此版本无密码、无数据持久化，容器删除后数据会丢失，仅用于临时测试。<br>4.3 生产级启动（推荐长期使用）<br>带密码验证、数据持久化、开机自启，数据不会丢失，适合日常开发常驻使用。<br>第一步：创建数据卷<br>Docker 卷用于持久化存储容器数据，容器删除后卷内数据依然保留：<br>cmd<br>docker volume create redis-data<br>第二步：执行启动命令<br>cmd<br>docker run -d ^<br>–name redis ^<br>–restart always ^<br>-p 6379:6379 ^<br>-v redis-data:&#x2F;data ^<br>redis:latest ^<br>redis-server ^<br>–requirepass yourpassword123 ^<br>–appendonly yes<br>说明：Windows CMD 用 ^ 换行，PowerShell 用 &#96; 换行，也可以整合成一行执行。<br>参数详解<br>表格<br>参数	作用<br>-d	后台运行容器，不占用终端窗口<br>–name redis	给容器命名为 redis，方便后续管理<br>–restart always	开机自启：Docker 启动、电脑重启后自动拉起 Redis<br>-p 6379:6379	端口映射：本地 6379 端口 → 容器内 6379 端口<br>-v redis-data:&#x2F;data	数据挂载：将数据卷挂载到容器内 Redis 的数据目录<br>–requirepass yourpassword123	设置 Redis 连接密码<br>–appendonly yes	开启 AOF 持久化，异常重启数据不丢失<br>4.4 验证运行状态<br>两种方式验证：<br>命令行验证<br>cmd<br>docker exec -it redis redis-cli -a yourpassword123 ping<br>返回 PONG 即为正常运行。<br>客户端连接<br>使用 Redis 可视化工具（如 Another Redis Desktop Manager），连接地址 127.0.0.1，端口 6379，输入密码即可连接。<br>五、Redis 容器日常管理命令<br>cmd</p>
-<h1 id="查看运行中的容器"><a href="#查看运行中的容器" class="headerlink" title="查看运行中的容器"></a>查看运行中的容器</h1><p>docker ps</p>
-<h1 id="停止-Redis"><a href="#停止-Redis" class="headerlink" title="停止 Redis"></a>停止 Redis</h1><p>docker stop redis</p>
-<h1 id="启动-Redis"><a href="#启动-Redis" class="headerlink" title="启动 Redis"></a>启动 Redis</h1><p>docker start redis</p>
-<h1 id="重启-Redis"><a href="#重启-Redis" class="headerlink" title="重启 Redis"></a>重启 Redis</h1><p>docker restart redis</p>
-<h1 id="查看运行日志"><a href="#查看运行日志" class="headerlink" title="查看运行日志"></a>查看运行日志</h1><p>docker logs redis</p>
-<h1 id="进入-Redis-命令行"><a href="#进入-Redis-命令行" class="headerlink" title="进入 Redis 命令行"></a>进入 Redis 命令行</h1><p>docker exec -it redis redis-cli -a yourpassword123</p>
-<h1 id="删除容器（数据卷不会被删除，数据依然保留）"><a href="#删除容器（数据卷不会被删除，数据依然保留）" class="headerlink" title="删除容器（数据卷不会被删除，数据依然保留）"></a>删除容器（数据卷不会被删除，数据依然保留）</h1><p>docker rm -f redis<br>六、关键注意事项<br>数据安全<br>只要挂载配置不变，删除容器后重新执行启动命令，数据会自动恢复。<br>定期备份：执行 docker exec redis BGSAVE，会在数据卷中生成 RDB 备份文件。<br>内存占用<br>Redis 本身非常轻量，正常运行仅占用几十 MB 内存，加上 WSL 开销总共几百 MB，资源占用极低。<br>网络安全<br>默认只有本地电脑能连接，外网无法访问。如果需要局域网访问，启动命令加上 –bind 0.0.0.0 参数即可。<br>图形化管理<br>Docker Desktop 左侧点击 Containers，即可看到所有容器，可直观查看日志、启停容器、进入终端，无需记忆命令。<br>七、硬件配置适配建议<br>以 16GB 内存 + 13 代 i7 配置为例：<br>WSL2 建议分配 4GB 内存、4 核 CPU，跑 Redis 完全充足，剩余资源留给 Windows 主系统。<br>可通过用户目录下的 .wslconfig 文件手动限制资源，示例配置：<br>ini<br>[wsl2]<br>memory&#x3D;4GB<br>processors&#x3D;4<br>保存后执行 wsl –shutdown 重启 WSL 生效。<br>进阶：Docker Compose 管理<br>如果后续需要同时管理 MySQL、Nginx 等多个服务，推荐使用 Docker Compose，通过一个配置文件统一管理所有服务，启动停止一键操作。</p>
-
-      
-    </div>
-    <footer class="article-footer">
-      <a data-url="https://yukc01.github.io/2026/09/15/Docker-%E5%85%A5%E9%97%A8%E5%AE%9E%E6%88%98%EF%BC%9AWindows-%E7%8E%AF%E5%A2%83%E4%B8%8B%E9%83%A8%E7%BD%B2-Redis-%E5%AE%8C%E6%95%B4%E6%8C%87%E5%8D%97/" data-id="cmu45p9rh000gvg9wank61wfj" data-title="Docker 入门实战：Windows 环境下部署 Redis 完整指南" class="article-share-link"><span class="fa fa-share">分享</span></a>
-      
-      
-      
-  <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/%E5%85%A5%E9%97%A8%E5%AE%9E%E6%88%98-Docker/" rel="tag">-入门实战 -Docker</a></li></ul>
-
-    </footer>
-  </div>
-  
-</article>
-
-
-
-  
-    <article id="post-第一个博客笔记" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
-  <div class="article-meta">
-    <a href="/2026/09/14/%E7%AC%AC%E4%B8%80%E4%B8%AA%E5%8D%9A%E5%AE%A2%E7%AC%94%E8%AE%B0/" class="article-date">
-  <time class="dt-published" datetime="2026-09-14T14:50:07.000Z" itemprop="datePublished">2026-09-14</time>
-</a>
-    
-  </div>
-  <div class="article-inner">
-    
-    
-      <header class="article-header">
-        
-  
-    <h1 itemprop="name">
-      <a class="p-name article-title" href="/2026/09/14/%E7%AC%AC%E4%B8%80%E4%B8%AA%E5%8D%9A%E5%AE%A2%E7%AC%94%E8%AE%B0/">第一个博客笔记</a>
-    </h1>
-  
-
-      </header>
-    
-    <div class="e-content article-entry" itemprop="articleBody">
-      
-        <p>#博客初体验</p>
-
-      
-    </div>
-    <footer class="article-footer">
-      <a data-url="https://yukc01.github.io/2026/09/14/%E7%AC%AC%E4%B8%80%E4%B8%AA%E5%8D%9A%E5%AE%A2%E7%AC%94%E8%AE%B0/" data-id="cmu45p9rm000jvg9wb8cmckav" data-title="第一个博客笔记" class="article-share-link"><span class="fa fa-share">分享</span></a>
-      
-      
-      
-  <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/%E5%88%9D%E4%BD%93%E9%AA%8C/" rel="tag">初体验</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/%E6%B5%8B%E8%AF%95/" rel="tag">测试</a></li></ul>
-
-    </footer>
-  </div>
-  
-</article>
-
-
-
-  
-    <article id="post-测试文章" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
-  <div class="article-meta">
-    <a href="/2026/09/14/%E6%B5%8B%E8%AF%95%E6%96%87%E7%AB%A0/" class="article-date">
-  <time class="dt-published" datetime="2026-09-14T06:02:41.000Z" itemprop="datePublished">2026-09-14</time>
-</a>
-    
-  </div>
-  <div class="article-inner">
-    
-    
-      <header class="article-header">
-        
-  
-    <h1 itemprop="name">
-      <a class="p-name article-title" href="/2026/09/14/%E6%B5%8B%E8%AF%95%E6%96%87%E7%AB%A0/">测试文章</a>
-    </h1>
-  
-
-      </header>
-    
-    <div class="e-content article-entry" itemprop="articleBody">
-      
-        
-      
-    </div>
-    <footer class="article-footer">
-      <a data-url="https://yukc01.github.io/2026/09/14/%E6%B5%8B%E8%AF%95%E6%96%87%E7%AB%A0/" data-id="cmu45p9rk000ivg9w0rok0uxz" data-title="测试文章" class="article-share-link"><span class="fa fa-share">分享</span></a>
-      
-      
-      
-    </footer>
-  </div>
-  
-</article>
-
-
-
-  
 
 
 </section>
